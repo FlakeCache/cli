@@ -1,4 +1,4 @@
-//! Error types and handling for FlakeCache CLI
+//! Error types and handling for the FlakeCache CLI
 //!
 //! Provides structured error types for all CLI operations with proper context
 //! and error chains for debugging.
@@ -6,7 +6,7 @@
 use std::path::PathBuf;
 use thiserror::Error;
 
-/// Result type alias for FlakeCache CLI operations
+/// Result type alias for the FlakeCache CLI
 pub type Result<T> = std::result::Result<T, CliError>;
 
 /// Comprehensive error types for FlakeCache CLI operations
@@ -99,7 +99,7 @@ pub enum CliError {
     #[error("Cache operation failed: {0}")]
     CacheError(String),
 
-    /// NAR (Nix ARchive) signing/verification failed
+    /// NAR signing/verification failed
     #[error("NAR signature verification failed: {0}")]
     SignatureError(String),
 
@@ -193,7 +193,12 @@ pub enum CliError {
 
 impl CliError {
     /// Get the exit code for this error
-    pub fn exit_code(&self) -> i32 {
+    ///
+    /// # Returns
+    ///
+    /// The appropriate exit code (0-255) based on error type
+    #[must_use]
+    pub const fn exit_code(&self) -> i32 {
         match self {
             Self::MissingToken | Self::NoConfig => 1,
             Self::InvalidArgument(_) | Self::MissingArgument(_) => 2,
@@ -209,8 +214,13 @@ impl CliError {
         }
     }
 
-    /// Whether the error is retryable
-    pub fn is_retryable(&self) -> bool {
+    /// Check if the error is retryable
+    ///
+    /// # Returns
+    ///
+    /// `true` if the operation can be retried, `false` otherwise
+    #[must_use]
+    pub const fn is_retryable(&self) -> bool {
         matches!(
             self,
             Self::ConnectionError { .. }

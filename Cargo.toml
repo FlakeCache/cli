@@ -73,18 +73,27 @@ unused_must_use = "warn"
 
 [lints.clippy]
 # Deny critical issues (must come before lint groups to avoid priority conflicts)
-unwrap_used = { level = "deny", priority = 1 }
-expect_used = { level = "deny", priority = 1 }
-panic = { level = "deny", priority = 1 }
-todo = { level = "warn", priority = 1 }
-unimplemented = { level = "warn", priority = 1 }
-unreachable = { level = "warn", priority = 1 }
+unwrap_used = { level = "deny", priority = 2 }
+expect_used = { level = "deny", priority = 2 }
+panic = { level = "deny", priority = 2 }
+unimplemented = { level = "deny", priority = 2 }
+todo = { level = "deny", priority = 2 }
+unreachable = { level = "deny", priority = 2 }
+
+# Warn on common mistakes
+dbg_macro = { level = "deny", priority = 2 }
+print_stdout = { level = "deny", priority = 2 }
+print_stderr = { level = "deny", priority = 2 }
 
 # Allow specific cases (explicit priority to avoid conflicts)
-multiple_crate_versions = { level = "allow", priority = 1 }
+multiple_crate_versions = { level = "allow", priority = 2 }
 module_name_repetitions = { level = "allow", priority = 1 }
+type_complexity = { level = "allow", priority = 1 }
+too_many_arguments = { level = "allow", priority = 1 }
+missing_docs = { level = "warn", priority = 1 }
+missing_errors_doc = { level = "warn", priority = 1 }
 
-# Enable all pedantic and nursery lints (lower priority)
-pedantic = "warn"
-nursery = "warn"
-cargo = "warn"
+# Enable all strict lints (pedantic, nursery, cargo)
+pedantic = { level = "warn", priority = 0 }
+nursery = { level = "warn", priority = 0 }
+cargo = { level = "warn", priority = 0 }

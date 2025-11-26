@@ -1,4 +1,4 @@
-//! Authentication configuration
+//! Authentication configuration management
 
 use serde::{Deserialize, Serialize};
 
@@ -24,11 +24,25 @@ pub struct AuthConfig {
 
 impl AuthConfig {
     /// Check if authentication is configured
+    ///
+    /// # Returns
+    ///
+    /// `true` if a token is set, `false` otherwise
+    #[must_use]
     pub fn is_authenticated(&self) -> bool {
         !self.token.is_empty()
     }
 
     /// Check if token is expired
+    ///
+    /// # Returns
+    ///
+    /// `true` if the token has expired, `false` otherwise
+    ///
+    /// # Errors
+    ///
+    /// This function does not return errors but relies on system time
+    #[must_use]
     pub fn is_expired(&self) -> bool {
         if let Some(expires_at) = self.expires_at {
             std::time::SystemTime::now()
@@ -41,9 +55,15 @@ impl AuthConfig {
     }
 
     /// Check if token needs refresh
+    ///
+    /// Returns `true` if token expires within 5 minutes
+    ///
+    /// # Returns
+    ///
+    /// `true` if the token should be refreshed soon, `false` otherwise
+    #[must_use]
     pub fn needs_refresh(&self) -> bool {
         if let Some(expires_at) = self.expires_at {
-            // Refresh if within 5 minutes of expiration
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .map(|dur| dur.as_secs() + 300 >= expires_at)
@@ -53,7 +73,7 @@ impl AuthConfig {
         }
     }
 
-    /// Clear authentication
+    /// Clear authentication data
     pub fn clear(&mut self) {
         self.token.clear();
         self.refresh_token.clear();
