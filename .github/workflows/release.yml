@@ -54,38 +54,33 @@ jobs:
       contents: write
 
     steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: artifacts/*/flakecache-*
+
       - uses: actions/checkout@v4
         with:
           repository: FlakeCache/releases
           token: ${{ secrets.FLAKECACHE_TOKEN }}
           path: releases
 
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-
-      - name: Copy binaries to releases repo
+      - name: Copy binaries to internal action repo
         run: |
           mkdir -p releases/dist
           cp artifacts/*/flakecache-* releases/dist/
           ls -la releases/dist/
 
-      - name: Commit and push to releases repo
+      - name: Commit and push to internal action repo
         run: |
           cd releases
           git config user.name "FlakeCache Bot"
           git config user.email "bot@flakecache.com"
           git add dist/
-          git commit -m "Release CLI ${{ github.ref_name }}"
-          git tag -f cli-${{ github.ref_name }}
+          git commit -m "Update CLI binaries from ${{ github.ref_name }}" || echo "No changes"
           git push origin main
-          git push -f origin cli-${{ github.ref_name }}
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
-        with:
-          repository: FlakeCache/releases
-          tag_name: cli-${{ github.ref_name }}
-          files: artifacts/*/flakecache-*
-          token: ${{ secrets.FLAKECACHE_TOKEN }}
