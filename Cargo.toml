@@ -1,0 +1,90 @@
+[package]
+name = "flakecache-cli"
+version.workspace = true
+edition = "2021"
+authors = ["FlakeCache Team"]
+description = "FlakeCache CLI: GitHub Actions setup, OAuth login, and direct uploads"
+license = "Apache-2.0"
+repository = "https://github.com/singularity-ng/flakecache"
+readme = "../../README.md"
+categories = ["command-line-utilities", "development-tools"]
+keywords = ["github", "actions", "oauth", "cli", "flakecache"]
+
+[package.metadata.cargo-machete]
+ignored = ["dialoguer", "thiserror", "tokio-util", "toml"]
+
+[[bin]]
+name = "flakecache"
+path = "src/main.rs"
+
+[dependencies]
+# CLI framework
+clap = { version = "4.5.51", features = ["derive", "color"] }
+dialoguer = "0.12.0"  # Interactive prompts
+console = "0.16.1"  # Terminal colors and styling
+colored = "3.0.0"  # Colored terminal output
+
+# HTTP client for GitHub API
+reqwest = { version = "0.12.24", default-features = false, features = ["json", "rustls-tls", "http2", "stream", "blocking", "charset", "macos-system-configuration"] }
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.145"
+ciborium = "0.2.2"  # CBOR (binary JSON) for fast API communication - maintained replacement for serde_cbor
+
+# Error handling
+anyhow = "1.0.100"
+thiserror = "2.0.17"
+
+# Utilities
+dirs = "6.0.0"  # For config directory
+tokio = { version = "1.48.0", features = ["full"] }
+tokio-util = { version = "0.7.17", features = ["codec", "io"] }  # Better streaming utilities
+sha2 = "0.10.9"  # For hashing
+base32 = "0.5.1"  # For Nix base32 encoding
+base64 = "0.22.1"  # For JWT payload decoding
+futures = "0.3.31"  # For streaming
+crc32fast = "1.5.0"  # For CRC32 checksum verification
+toml = "0.9.8"  # For TOML config parsing
+urlencoding = "2.1.3"  # For URL encoding OAuth callback
+open = "5.3.2"  # For opening browser (OAuth)
+uuid = { version = "1.18.1", features = ["v7"] }  # For OAuth state generation (time-ordered)
+petgraph = "0.8.3"  # For dependency graph analysis and topological ordering
+rayon = "1.11.0"  # For parallel graph edge building
+hex = "0.4.3"  # For hex encoding of hashes
+num_cpus = "1.17.0"  # For detecting CPU count (adaptive concurrency)
+chrono = "0.4.42"  # For timestamp formatting in daemon logs
+self_update = { version = "0.42", default-features = false, features = ["rustls"] }
+ed25519-dalek = { version = "2.1.1", default-features = true }
+
+# =============================================================================
+# Enterprise-Grade Clippy Lints Configuration
+# =============================================================================
+# Strict, pedantic, and nursery lints enabled for maximum code quality
+[lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
+missing_debug_implementations = "warn"
+missing_copy_implementations = "warn"
+trivial_casts = "deny"
+trivial_numeric_casts = "deny"
+unused_import_braces = "deny"
+unused_qualifications = "deny"
+unused_results = "warn"
+unused_must_use = "warn"
+
+[lints.clippy]
+# Deny critical issues (must come before lint groups to avoid priority conflicts)
+unwrap_used = { level = "deny", priority = 1 }
+expect_used = { level = "deny", priority = 1 }
+panic = { level = "deny", priority = 1 }
+todo = { level = "warn", priority = 1 }
+unimplemented = { level = "warn", priority = 1 }
+unreachable = { level = "warn", priority = 1 }
+
+# Allow specific cases (explicit priority to avoid conflicts)
+multiple_crate_versions = { level = "allow", priority = 1 }
+module_name_repetitions = { level = "allow", priority = 1 }
+
+# Enable all pedantic and nursery lints (lower priority)
+pedantic = "warn"
+nursery = "warn"
+cargo = "warn"
