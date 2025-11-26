@@ -1,1 +1,3 @@
-// Placeholder module - to be implemented
+//! Streaming utilities
+//!
+//! Efficient streaming for large file transfers.

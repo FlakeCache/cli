@@ -1,1 +1,3 @@
-// Placeholder module - to be implemented
+//! Parallelization utilities
+//!
+//! Utilities for parallel uploads/downloads with adaptive concurrency.
