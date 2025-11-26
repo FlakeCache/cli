@@ -1,0 +1,91 @@
+name: Release CLI
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            artifact: flakecache-linux-x86_64
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            artifact: flakecache-linux-aarch64
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            artifact: flakecache-macos-x86_64
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            artifact: flakecache-macos-aarch64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Build CLI
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Rename binary
+        run: |
+          cp target/${{ matrix.target }}/release/flakecache ${{ matrix.artifact }}
+          chmod +x ${{ matrix.artifact }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.artifact }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: FlakeCache/releases
+          token: ${{ secrets.FLAKECACHE_TOKEN }}
+          path: releases
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Copy binaries to releases repo
+        run: |
+          mkdir -p releases/dist
+          cp artifacts/*/flakecache-* releases/dist/
+          ls -la releases/dist/
+
+      - name: Commit and push to releases repo
+        run: |
+          cd releases
+          git config user.name "FlakeCache Bot"
+          git config user.email "bot@flakecache.com"
+          git add dist/
+          git commit -m "Release CLI ${{ github.ref_name }}"
+          git tag -f cli-${{ github.ref_name }}
+          git push origin main
+          git push -f origin cli-${{ github.ref_name }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          repository: FlakeCache/releases
+          tag_name: cli-${{ github.ref_name }}
+          files: artifacts/*/flakecache-*
+          token: ${{ secrets.FLAKECACHE_TOKEN }}
