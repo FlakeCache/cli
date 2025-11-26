@@ -34,7 +34,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install Nix
-        uses: FlakeCache/nix-installer@main
+        uses: FlakeCache/nix-installer@v1
 
       - name: Build with Nix
         run: |
@@ -58,6 +58,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - uses: actions/checkout@v4
+        with:
+          path: cli
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
@@ -76,17 +80,23 @@ jobs:
           token: ${{ secrets.FLAKECACHE_TOKEN }}
           path: releases
 
-      - name: Copy binaries to internal action repo
+      - name: Copy binaries to internal releases repo
         run: |
-          mkdir -p releases/dist
-          cp artifacts/* releases/dist/
-          ls -la releases/dist/
+          mkdir -p releases/cli/dist
+          cp artifacts/* releases/cli/dist/
+          ls -la releases/cli/dist/
 
-      - name: Commit and push to internal action repo
+      - name: Commit and push to internal releases repo
         run: |
           cd releases
           git config user.name "FlakeCache Bot"
           git config user.email "bot@flakecache.com"
-          git add dist/
-          git commit -m "Update CLI binaries from ${{ github.ref_name }}" || echo "No changes"
+          git add cli/dist/
+          git commit -m "Update CLI binaries from FlakeCache/cli ${{ github.ref_name }}" || echo "No changes"
           git push origin main
+
+      - name: Tag internal releases repo for CLI
+        run: |
+          cd releases
+          git tag -f cli-${{ github.ref_name }}
+          git push -f origin cli-${{ github.ref_name }}
