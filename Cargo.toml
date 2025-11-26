@@ -1,12 +1,12 @@
 [package]
 name = "flakecache-cli"
-version.workspace = true
+version = "0.2.0"
 edition = "2021"
 authors = ["FlakeCache Team"]
 description = "FlakeCache CLI: GitHub Actions setup, OAuth login, and direct uploads"
 license = "Apache-2.0"
-repository = "https://github.com/singularity-ng/flakecache"
-readme = "../../README.md"
+repository = "https://github.com/FlakeCache/cli"
+readme = "README.md"
 categories = ["command-line-utilities", "development-tools"]
 keywords = ["github", "actions", "oauth", "cli", "flakecache"]
 
