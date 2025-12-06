@@ -40,11 +40,19 @@ jobs:
         if: matrix.os != 'windows-latest'
         uses: FlakeCache/nix-installer@v1
 
+      - name: Run tests
+        if: matrix.os != 'windows-latest'
+        run: cargo test
+
       - name: Build with Nix
         if: matrix.os != 'windows-latest'
         run: |
           nix build .#packages.${{ matrix.target }}.default
           cp result/bin/flakecache ${{ matrix.artifact }}
+
+      - name: Run tests (Windows)
+        if: matrix.os == 'windows-latest'
+        run: cargo test
 
       - name: Build with Cargo
         if: matrix.os == 'windows-latest'
