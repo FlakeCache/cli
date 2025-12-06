@@ -19,10 +19,10 @@
       ];
 
       perSystem = { config, self', inputs', pkgs, system, ... }: let
-        rust = pkgs.rust-bin.stable.latest.default;
+        rust = if system == "x86_64-windows" then pkgs.rustc else inputs.rust-overlay.lib.mkRustBin { } { rustChannel = "stable"; };
         craneLib = inputs.crane.mkLib pkgs;
         mkPackage = crossSystem: let
-          craneLibCross = if crossSystem != null then craneLib.overrideToolchain (pkgs.pkgsCross.${crossSystem}.rust-bin.stable.latest.default) else craneLib;
+          craneLibCross = if crossSystem != null then craneLib.overrideToolchain (pkgs.pkgsCross.${crossSystem}.rust-bin.stable.latest.default) else craneLib.overrideToolchain rust;
         in craneLibCross.buildPackage {
           src = ./.;
           nativeBuildInputs = with pkgs; [
