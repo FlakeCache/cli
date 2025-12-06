@@ -37,12 +37,20 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install Nix
+        if: matrix.os != 'windows-latest'
         uses: FlakeCache/nix-installer@v1
 
       - name: Build with Nix
+        if: matrix.os != 'windows-latest'
         run: |
           nix build .#packages.${{ matrix.target }}.default
           cp result/bin/flakecache ${{ matrix.artifact }}
+
+      - name: Build with Cargo
+        if: matrix.os == 'windows-latest'
+        run: |
+          cargo build --release
+          cp target/release/flakecache.exe ${{ matrix.artifact }}
           chmod +x ${{ matrix.artifact }}
 
       - name: Generate artifact attestation
