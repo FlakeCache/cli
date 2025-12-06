@@ -6,6 +6,9 @@ Cargo.lock.bak
 result
 result-*
 
+# Claude flow data
+.claude-flow/
+
 # OS generated files
 .DS_Store
 .DS_Store?
