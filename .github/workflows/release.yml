@@ -29,6 +29,9 @@ jobs:
           - os: macos-latest
             target: aarch64-darwin
             artifact: flakecache-macos-aarch64
+          - os: windows-latest
+            target: x86_64-windows
+            artifact: flakecache-windows-x86_64.exe
 
     steps:
       - uses: actions/checkout@v4
