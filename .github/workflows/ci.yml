@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test-linux:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target:
+          - x86_64-linux
+          - aarch64-linux
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: FlakeCache/nix-installer@v1
+
+      - name: Run tests
+        run: cargo test
+
+      - name: Build (${{ matrix.target }})
+        run: |
+          nix build .#packages.${{ matrix.target }}.default
+          ls -lah result/bin/

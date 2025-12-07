@@ -38,15 +38,28 @@
       in {
         packages = {
           default = mkPackage null;  # Native build
-        } // (if system == "x86_64-linux" then {
-          "x86_64-linux" = mkPackage null;
-          "aarch64-linux" = mkPackage "aarch64-multiplatform";
-        } else if system == "aarch64-darwin" then {
-          "x86_64-darwin" = mkPackage null;
-          "aarch64-darwin" = mkPackage null;
-        } else if system == "x86_64-windows" then {
-          "x86_64-windows" = mkPackage null;
-        } else {});
+        } // (
+          # Linux hosts can cross-compile between x86_64 and aarch64
+          if system == "x86_64-linux" then {
+            "x86_64-linux" = mkPackage null;
+            "aarch64-linux" = mkPackage "aarch64-multiplatform";
+          } else if system == "aarch64-linux" then {
+            "aarch64-linux" = mkPackage null;
+            "x86_64-linux" = mkPackage "gnu64";
+          }
+          # macOS can build both architectures natively
+          else if system == "aarch64-darwin" then {
+            "x86_64-darwin" = mkPackage null;
+            "aarch64-darwin" = mkPackage null;
+          } else if system == "x86_64-darwin" then {
+            "x86_64-darwin" = mkPackage null;
+            "aarch64-darwin" = mkPackage "aarch64-darwin";
+          }
+          # Windows (x86_64 only supported)
+          else if system == "x86_64-windows" then {
+            "x86_64-windows" = mkPackage null;
+          } else {}
+        );
 
         devShells.default = pkgs.mkShell {
           packages = with pkgs; [

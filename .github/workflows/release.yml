@@ -5,6 +5,12 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      build_all_platforms:
+        description: 'Build all platforms (including macOS/Windows)?'
+        required: true
+        default: 'false'
+        type: boolean
 
 permissions:
   contents: write
@@ -32,6 +38,10 @@ jobs:
           - os: windows-latest
             target: x86_64-windows
             artifact: flakecache-windows-x86_64.exe
+    exclude:
+      # Exclude macOS/Windows unless it's a special tag ending with -all or manual trigger with flag
+      - os: ${{ (contains(github.ref, '-all') || inputs.build_all_platforms) == false && 'macos-latest' || 'skip' }}
+      - os: ${{ (contains(github.ref, '-all') || inputs.build_all_platforms) == false && 'windows-latest' || 'skip' }}
 
     steps:
       - uses: actions/checkout@v4
