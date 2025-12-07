@@ -55,6 +55,9 @@ chrono = "0.4.42"  # For timestamp formatting in daemon logs
 self_update = { version = "0.42", default-features = false, features = ["rustls"] }
 ed25519-dalek = { version = "2.1.1", default-features = true }
 
+# FlakeCache internal crates
+flakecache-chunker = { git = "https://github.com/FlakeCache/chunker", tag = "v0.1.0-beta16" }
+
 # =============================================================================
 # Enterprise-Grade Clippy Lints Configuration
 # =============================================================================
