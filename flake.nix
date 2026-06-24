@@ -1,6 +1,11 @@
 {
   description = "FlakeCache CLI";
 
+  nixConfig = {
+    extra-substituters = [ "https://cache.centralcloud.com/default" ];
+    extra-trusted-public-keys = [ "default:ESyvaQTiq681JA0iaH5tsQWS+R5qqJUVdVY1OXbi9to=" ];
+  };
+
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
     flake-parts.url = "github:hercules-ci/flake-parts";
