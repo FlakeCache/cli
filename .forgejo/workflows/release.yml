@@ -26,11 +26,6 @@ jobs:
             artifact: flakecache-linux-x86_64
             linker_package: ""
             linker_env: ""
-          - os: ubuntu-latest
-            target: aarch64-unknown-linux-gnu
-            artifact: flakecache-linux-aarch64
-            linker_package: gcc-aarch64-linux-gnu
-            linker_env: CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
 
     steps:
       - uses: actions/checkout@v4
@@ -39,40 +34,17 @@ jobs:
         if: matrix.os != 'windows-latest'
         uses: ./.forgejo/actions/setup-nix
 
-      - name: Install Linux cross linker
-        if: matrix.linker_package != ''
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y "${{ matrix.linker_package }}"
-
-      - name: Add Rust target
-        run: rustup target add ${{ matrix.target }}
-
       - name: Run tests
         if: matrix.target == 'x86_64-unknown-linux-gnu'
         run: cargo test
 
-      - name: Verify Nix native build
+      - name: Build Nix native artifact
         if: matrix.target == 'x86_64-unknown-linux-gnu'
-        run: nix build .#x86_64-linux --print-build-logs --accept-flake-config
-
-      - name: Build Unix artifact
-        if: matrix.os != 'windows-latest'
         run: |
           set -euo pipefail
-          if [ -n "${{ matrix.linker_env }}" ]; then
-            export ${{ matrix.linker_env }}
-          fi
-          cargo build --release --target "${{ matrix.target }}"
-          cp "target/${{ matrix.target }}/release/flakecache" "${{ matrix.artifact }}"
+          nix build .#x86_64-linux --print-build-logs --accept-flake-config
+          cp result/bin/flakecache "${{ matrix.artifact }}"
           chmod +x "${{ matrix.artifact }}"
-
-      - name: Build Windows artifact
-        if: matrix.os == 'windows-latest'
-        shell: pwsh
-        run: |
-          cargo build --release --target "${{ matrix.target }}"
-          Copy-Item "target/${{ matrix.target }}/release/flakecache.exe" "${{ matrix.artifact }}"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -104,7 +76,6 @@ jobs:
           cd artifacts
           expected=(
             flakecache-linux-x86_64
-            flakecache-linux-aarch64
           )
           for artifact in "${expected[@]}"; do
             test -s "$artifact"
