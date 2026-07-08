@@ -9,70 +9,57 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
     flake-parts.url = "github:hercules-ci/flake-parts";
-    rust-overlay.url = "github:oxalica/rust-overlay";
     crane.url = "github:ipetkov/crane";
   };
 
-  outputs = inputs@{ flake-parts, ... }:
+  outputs = inputs@{ flake-parts, crane, ... }:
     flake-parts.lib.mkFlake { inherit inputs; } {
       systems = [
         "x86_64-linux"
         "aarch64-linux"
         "x86_64-darwin"
         "aarch64-darwin"
-        "x86_64-windows"
       ];
 
-      perSystem = { config, self', inputs', pkgs, system, ... }: let
-        rust = if system == "x86_64-windows" then pkgs.rustc else inputs.rust-overlay.lib.mkRustBin { } { rustChannel = "stable"; };
-        craneLib = inputs.crane.mkLib pkgs;
-        mkPackage = crossSystem: let
-          craneLibCross = if crossSystem != null then craneLib.overrideToolchain (pkgs.pkgsCross.${crossSystem}.rust-bin.stable.latest.default) else craneLib.overrideToolchain rust;
-        in craneLibCross.buildPackage {
-          src = ./.;
-          nativeBuildInputs = with pkgs; [
-            pkg-config
-          ];
-          buildInputs = with pkgs; [
-            openssl
-          ] ++ lib.optionals stdenv.isDarwin [
-            darwin.apple_sdk.frameworks.Security
-            darwin.apple_sdk.frameworks.SystemConfiguration
-          ];
-        };
-      in {
-        packages = {
-          default = mkPackage null;  # Native build
-        } // (
-          # Linux hosts can cross-compile between x86_64 and aarch64
-          if system == "x86_64-linux" then {
-            "x86_64-linux" = mkPackage null;
-            "aarch64-linux" = mkPackage "aarch64-multiplatform";
-          } else if system == "aarch64-linux" then {
-            "aarch64-linux" = mkPackage null;
-            "x86_64-linux" = mkPackage "gnu64";
-          }
-          # macOS can build both architectures natively
-          else if system == "aarch64-darwin" then {
-            "x86_64-darwin" = mkPackage null;
-            "aarch64-darwin" = mkPackage null;
-          } else if system == "x86_64-darwin" then {
-            "x86_64-darwin" = mkPackage null;
-            "aarch64-darwin" = mkPackage "aarch64-darwin";
-          }
-          # Windows (x86_64 only supported)
-          else if system == "x86_64-windows" then {
-            "x86_64-windows" = mkPackage null;
-          } else {}
-        );
+      perSystem = { pkgs, system, ... }:
+        let
+          craneLib = crane.mkLib pkgs;
+          cargoSrc = pkgs.lib.cleanSourceWith {
+            src = ./.;
+            filter = path: type:
+              (craneLib.filterCargoSources path type)
+              || builtins.baseNameOf path == "README.md";
+          };
 
-        devShells.default = pkgs.mkShell {
-          packages = with pkgs; [
-            rust
-            cargo
-            rustc
-          ];
+          flakecacheCli = craneLib.buildPackage {
+            src = cargoSrc;
+            strictDeps = true;
+
+            nativeBuildInputs = [
+              pkgs.pkg-config
+            ];
+
+            buildInputs = pkgs.lib.optionals pkgs.stdenv.isDarwin [
+              pkgs.darwin.apple_sdk.frameworks.Security
+              pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
+            ];
+          };
+        in
+        {
+          packages = {
+            default = flakecacheCli;
+            "${system}" = flakecacheCli;
+          };
+
+          devShells.default = pkgs.mkShell {
+            packages = [
+              pkgs.cargo
+              pkgs.rustc
+              pkgs.rustfmt
+              pkgs.clippy
+              pkgs.pkg-config
+            ];
+          };
         };
-      };
     };
 }

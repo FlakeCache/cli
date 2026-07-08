@@ -15,7 +15,6 @@ jobs:
       matrix:
         target:
           - x86_64-linux
-          - aarch64-linux
 
     steps:
       - uses: actions/checkout@v4
@@ -28,5 +27,5 @@ jobs:
 
       - name: Build (${{ matrix.target }})
         run: |
-          nix build .#packages.${{ matrix.target }}.default
+          nix build .#${{ matrix.target }} --print-build-logs --accept-flake-config
           ls -lah result/bin/

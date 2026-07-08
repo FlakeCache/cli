@@ -3,45 +3,56 @@ name: Release CLI
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
   workflow_dispatch:
-    inputs:
-      build_all_platforms:
-        description: 'Build all platforms (including macOS/Windows)?'
-        required: true
-        default: 'false'
-        type: boolean
 
 permissions:
   contents: write
   id-token: write
   attestations: write
 
+env:
+  GARAGE_ENDPOINT_URL: https://s3-eu1.centralcloud.com
+  GARAGE_BUCKET: centralcloud-flakecache
+
 jobs:
   build:
+    name: Build ${{ matrix.artifact }}
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
-            target: x86_64-linux
+            target: x86_64-unknown-linux-gnu
             artifact: flakecache-linux-x86_64
+            linker_package: ""
+            linker_env: ""
           - os: ubuntu-latest
-            target: aarch64-linux
+            target: aarch64-unknown-linux-gnu
             artifact: flakecache-linux-aarch64
+            linker_package: gcc-aarch64-linux-gnu
+            linker_env: CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
           - os: macos-latest
-            target: x86_64-darwin
+            target: x86_64-apple-darwin
             artifact: flakecache-macos-x86_64
+            linker_package: ""
+            linker_env: ""
           - os: macos-latest
-            target: aarch64-darwin
+            target: aarch64-apple-darwin
             artifact: flakecache-macos-aarch64
+            linker_package: ""
+            linker_env: ""
           - os: windows-latest
-            target: x86_64-windows
+            target: x86_64-pc-windows-msvc
             artifact: flakecache-windows-x86_64.exe
-    exclude:
-      # Exclude macOS/Windows unless it's a special tag ending with -all or manual trigger with flag
-      - os: ${{ (contains(github.ref, '-all') || inputs.build_all_platforms) == false && 'macos-latest' || 'skip' }}
-      - os: ${{ (contains(github.ref, '-all') || inputs.build_all_platforms) == false && 'windows-latest' || 'skip' }}
+            linker_package: ""
+            linker_env: ""
+          - os: windows-latest
+            target: aarch64-pc-windows-msvc
+            artifact: flakecache-windows-aarch64.exe
+            linker_package: ""
+            linker_env: ""
 
     steps:
       - uses: actions/checkout@v4
@@ -50,26 +61,40 @@ jobs:
         if: matrix.os != 'windows-latest'
         uses: flakecache/nix-installer@v1
 
+      - name: Install Linux cross linker
+        if: matrix.linker_package != ''
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y "${{ matrix.linker_package }}"
+
+      - name: Add Rust target
+        run: rustup target add ${{ matrix.target }}
+
       - name: Run tests
-        if: matrix.os != 'windows-latest'
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
         run: cargo test
 
-      - name: Build with Nix
+      - name: Verify Nix native build
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
+        run: nix build .#x86_64-linux --print-build-logs --accept-flake-config
+
+      - name: Build Unix artifact
         if: matrix.os != 'windows-latest'
         run: |
-          nix build .#packages.${{ matrix.target }}.default
-          cp result/bin/flakecache ${{ matrix.artifact }}
+          set -euo pipefail
+          if [ -n "${{ matrix.linker_env }}" ]; then
+            export ${{ matrix.linker_env }}
+          fi
+          cargo build --release --target "${{ matrix.target }}"
+          cp "target/${{ matrix.target }}/release/flakecache" "${{ matrix.artifact }}"
+          chmod +x "${{ matrix.artifact }}"
 
-      - name: Run tests (Windows)
+      - name: Build Windows artifact
         if: matrix.os == 'windows-latest'
-        run: cargo test
-
-      - name: Build with Cargo
-        if: matrix.os == 'windows-latest'
+        shell: pwsh
         run: |
-          cargo build --release
-          cp target/release/flakecache.exe ${{ matrix.artifact }}
-          chmod +x ${{ matrix.artifact }}
+          cargo build --release --target "${{ matrix.target }}"
+          Copy-Item "target/${{ matrix.target }}/release/flakecache.exe" "${{ matrix.artifact }}"
 
       - name: Generate artifact attestation
         uses: actions/attest-build-provenance@v1
@@ -91,11 +116,32 @@ jobs:
         with:
           path: cli
 
+      - name: Install Nix
+        uses: flakecache/nix-installer@v1
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
           merge-multiple: true
+
+      - name: Verify expected artifacts and generate checksums
+        run: |
+          set -euo pipefail
+          cd artifacts
+          expected=(
+            flakecache-linux-x86_64
+            flakecache-linux-aarch64
+            flakecache-macos-x86_64
+            flakecache-macos-aarch64
+            flakecache-windows-x86_64.exe
+            flakecache-windows-aarch64.exe
+          )
+          for artifact in "${expected[@]}"; do
+            test -s "$artifact"
+          done
+          sha256sum "${expected[@]}" > checksums.sha256
+          cat checksums.sha256
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -111,21 +157,33 @@ jobs:
 
       - name: Copy binaries to internal releases repo
         run: |
+          set -euo pipefail
           mkdir -p releases/cli/dist
-          cp artifacts/* releases/cli/dist/
+          cp artifacts/flakecache-* releases/cli/dist/
+          cp artifacts/checksums.sha256 releases/cli/dist/
           ls -la releases/cli/dist/
 
       - name: Commit and push to internal releases repo
         run: |
+          set -euo pipefail
           cd releases
           git config user.name "FlakeCache Bot"
           git config user.email "bot@flakecache.com"
           git add cli/dist/
           git commit -m "Update CLI binaries from FlakeCache/cli ${{ github.ref_name }}" || echo "No changes"
           git push origin main
+          git tag -f "cli-${{ github.ref_name }}"
+          git push -f origin "cli-${{ github.ref_name }}"
 
-      - name: Tag internal releases repo for CLI
+      - name: Upload CLI artifacts to Garage
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.GARAGE_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.GARAGE_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: eu1
         run: |
-          cd releases
-          git tag -f cli-${{ github.ref_name }}
-          git push -f origin cli-${{ github.ref_name }}
+          set -euo pipefail
+          nix run nixpkgs#awscli2 -- s3 sync artifacts/ "s3://${GARAGE_BUCKET}/cli/" \
+            --endpoint-url "${GARAGE_ENDPOINT_URL}" \
+            --exclude "*" \
+            --include "flakecache-*" \
+            --include "checksums.sha256"

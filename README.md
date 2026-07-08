@@ -7,12 +7,12 @@ High-performance Nix binary cache client with FastCDC chunking.
 ### Quick Install (Linux/macOS)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/FlakeCache/cli/main/install.sh | sh
+curl -fsSL https://git.infra.centralcloud.com/flakecache/cli/raw/branch/main/install.sh | sh
 ```
 
 ### Manual Download
 
-Download the binary for your platform from [Releases](https://github.com/FlakeCache/cli/releases):
+Download the binary for your platform from `https://cache.flakecache.com/cli`.
 
 | Platform | Binary |
 |----------|--------|
@@ -23,7 +23,7 @@ Download the binary for your platform from [Releases](https://github.com/FlakeCa
 | Windows x86_64 | `flakecache-windows-x86_64.exe` |
 | Windows ARM64 | `flakecache-windows-aarch64.exe` |
 
-### GitHub Actions
+### Forgejo/GitHub Actions
 
 ```yaml
 - uses: FlakeCache/nix-installer@v1
@@ -57,9 +57,9 @@ flakecache warm .#packages.x86_64-linux.default
 
 ## Source Code
 
-Source code is maintained in [FlakeCache/central](https://github.com/FlakeCache/central).
-
-This repository contains binary releases only.
+Source code is maintained in
+[flakecache/cli](https://git.infra.centralcloud.com/flakecache/cli), with a
+GitHub mirror at [FlakeCache/cli](https://github.com/FlakeCache/cli).
 
 ## License
 
