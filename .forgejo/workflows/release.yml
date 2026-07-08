@@ -59,7 +59,7 @@ jobs:
 
       - name: Install Nix
         if: matrix.os != 'windows-latest'
-        uses: flakecache/nix-installer@v1
+        uses: ./.forgejo/actions/setup-nix
 
       - name: Install Linux cross linker
         if: matrix.linker_package != ''
@@ -117,7 +117,7 @@ jobs:
           path: cli
 
       - name: Install Nix
-        uses: flakecache/nix-installer@v1
+        uses: ./.forgejo/actions/setup-nix
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4

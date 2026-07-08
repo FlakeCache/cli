@@ -15,6 +15,9 @@ permissions:
 
 jobs:
   analyze:
+    # github/codeql-action is not mirrored by data.forgejo.org. Keep this
+    # workflow GitHub-only until Forgejo has a native CodeQL mirror/runner path.
+    if: ${{ github.server_url == 'https://github.com' }}
     name: Analyze
     runs-on: ubuntu-latest
 

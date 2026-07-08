@@ -1,0 +1,34 @@
+name: "Setup Nix"
+description: "Use runner-provided Nix and configure FlakeCache substituters"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Configure Nix
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        if command -v nix >/dev/null 2>&1; then
+          nix_bin="$(command -v nix)"
+          echo "$(dirname "$nix_bin")" >> "$GITHUB_PATH"
+          echo "Using nix from PATH: $nix_bin"
+        elif [ -x /nix/var/nix/profiles/default/bin/nix ]; then
+          echo "/nix/var/nix/profiles/default/bin" >> "$GITHUB_PATH"
+          echo "Using nix from /nix/var/nix/profiles/default/bin"
+        else
+          echo "ERROR: Nix is not available on this Forgejo runner."
+          echo "Install Nix in the runner image or expose the host daemon socket."
+          exit 1
+        fi
+
+        mkdir -p "$HOME/.config/nix"
+        {
+          echo "experimental-features = nix-command flakes"
+          echo "fallback = true"
+          echo "substituters = https://cache.flakecache.com/infra https://cache.nixos.org"
+          echo "trusted-public-keys = default:ESyvaQTiq681JA0iaH5tsQWS+R5qqJUVdVY1OXbi9to= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
+          echo "builders-use-substitutes = true"
+        } > "$HOME/.config/nix/nix.conf"
+
+        nix --version
