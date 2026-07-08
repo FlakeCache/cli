@@ -8,8 +8,6 @@ on:
 
 permissions:
   contents: write
-  id-token: write
-  attestations: write
 
 env:
   GARAGE_ENDPOINT_URL: https://s3-eu1.centralcloud.com
@@ -33,26 +31,6 @@ jobs:
             artifact: flakecache-linux-aarch64
             linker_package: gcc-aarch64-linux-gnu
             linker_env: CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
-          - os: macos-latest
-            target: x86_64-apple-darwin
-            artifact: flakecache-macos-x86_64
-            linker_package: ""
-            linker_env: ""
-          - os: macos-latest
-            target: aarch64-apple-darwin
-            artifact: flakecache-macos-aarch64
-            linker_package: ""
-            linker_env: ""
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-            artifact: flakecache-windows-x86_64.exe
-            linker_package: ""
-            linker_env: ""
-          - os: windows-latest
-            target: aarch64-pc-windows-msvc
-            artifact: flakecache-windows-aarch64.exe
-            linker_package: ""
-            linker_env: ""
 
     steps:
       - uses: actions/checkout@v4
@@ -96,11 +74,6 @@ jobs:
           cargo build --release --target "${{ matrix.target }}"
           Copy-Item "target/${{ matrix.target }}/release/flakecache.exe" "${{ matrix.artifact }}"
 
-      - name: Generate artifact attestation
-        uses: actions/attest-build-provenance@v1
-        with:
-          subject-path: ${{ matrix.artifact }}
-
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
@@ -132,10 +105,6 @@ jobs:
           expected=(
             flakecache-linux-x86_64
             flakecache-linux-aarch64
-            flakecache-macos-x86_64
-            flakecache-macos-aarch64
-            flakecache-windows-x86_64.exe
-            flakecache-windows-aarch64.exe
           )
           for artifact in "${expected[@]}"; do
             test -s "$artifact"
