@@ -8,7 +8,9 @@ use clap::{Parser, Subcommand};
 #[derive(Parser, Debug)]
 #[command(name = "flakecache")]
 #[command(version = env!("CARGO_PKG_VERSION"))]
-#[command(about = "⚡ A CLI tool for accelerating Nix CI/CD pipelines by managing a shared binary cache")]
+#[command(
+    about = "⚡ A CLI tool for accelerating Nix CI/CD pipelines by managing a shared binary cache"
+)]
 #[command(long_about = concat!(
     "⚡ FlakeCache (v", env!("CARGO_PKG_VERSION"), ")\n",
     "A CLI tool for accelerating Nix CI/CD pipelines by managing a shared binary cache.\n\n",

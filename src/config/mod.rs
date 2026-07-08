@@ -80,8 +80,8 @@ impl Config {
             })?;
         }
 
-        let contents =
-            toml::to_string_pretty(self).map_err(|e| CliError::SerializationError(e.to_string()))?;
+        let contents = toml::to_string_pretty(self)
+            .map_err(|e| CliError::SerializationError(e.to_string()))?;
 
         fs::write(path, contents).map_err(|e| CliError::ConfigWrite {
             path: path.to_path_buf(),
@@ -110,9 +110,7 @@ impl Config {
             .ok()
             .and_then(|path| if path.is_empty() { None } else { Some(path) })
             .or_else(|| {
-                dirs::home_dir().map(|home| {
-                    home.join(".config").to_string_lossy().to_string()
-                })
+                dirs::home_dir().map(|home| home.join(".config").to_string_lossy().to_string())
             });
 
         config_home
@@ -131,9 +129,7 @@ impl Config {
             .ok()
             .and_then(|path| if path.is_empty() { None } else { Some(path) })
             .or_else(|| {
-                dirs::home_dir().map(|home| {
-                    home.join(".cache").to_string_lossy().to_string()
-                })
+                dirs::home_dir().map(|home| home.join(".cache").to_string_lossy().to_string())
             });
 
         cache_home
@@ -152,7 +148,9 @@ impl Config {
             self.auth.token.clone_from(&other.auth.token);
         }
         if !other.auth.refresh_token.is_empty() {
-            self.auth.refresh_token.clone_from(&other.auth.refresh_token);
+            self.auth
+                .refresh_token
+                .clone_from(&other.auth.refresh_token);
         }
         if let Some(cache) = &other.default_cache {
             self.default_cache = Some(cache.clone());
@@ -175,7 +173,9 @@ impl Config {
     pub fn validate(&self) -> Result<()> {
         // Ensure API URL is not empty
         if self.api_url.is_empty() {
-            return Err(CliError::InvalidConfig("api_url cannot be empty".to_string()));
+            return Err(CliError::InvalidConfig(
+                "api_url cannot be empty".to_string(),
+            ));
         }
 
         // Validate timeout

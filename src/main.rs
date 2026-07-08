@@ -57,10 +57,7 @@ fn execute(cli: Cli) -> Result<()> {
             limit,
             after,
         } => handle_list(cache, limit, after, cli.verbose),
-        Commands::Warm {
-            cache,
-            parallelism,
-        } => handle_warm(cache, parallelism, cli.verbose),
+        Commands::Warm { cache, parallelism } => handle_warm(cache, parallelism, cli.verbose),
         Commands::Stats { cache } => handle_stats(cache, cli.verbose),
         Commands::Version => handle_version(),
     }
