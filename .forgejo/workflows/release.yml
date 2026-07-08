@@ -12,100 +12,47 @@ permissions:
 env:
   GARAGE_ENDPOINT_URL: https://s3-eu1.centralcloud.com
   GARAGE_BUCKET: centralcloud-flakecache
+  ARTIFACT: flakecache-linux-x86_64
 
 jobs:
-  build:
-    name: Build ${{ matrix.artifact }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            artifact: flakecache-linux-x86_64
-            linker_package: ""
-            linker_env: ""
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Nix
-        if: matrix.os != 'windows-latest'
-        uses: ./.forgejo/actions/setup-nix
-
-      - name: Run tests
-        if: matrix.target == 'x86_64-unknown-linux-gnu'
-        run: cargo test
-
-      - name: Build Nix native artifact
-        if: matrix.target == 'x86_64-unknown-linux-gnu'
-        run: |
-          set -euo pipefail
-          nix build .#x86_64-linux --print-build-logs --accept-flake-config
-          cp result/bin/flakecache "${{ matrix.artifact }}"
-          chmod +x "${{ matrix.artifact }}"
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.artifact }}
-          path: ${{ matrix.artifact }}
-
   release:
-    needs: build
+    name: Build and publish Linux x86_64
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          path: cli
 
       - name: Install Nix
         uses: ./.forgejo/actions/setup-nix
 
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-          merge-multiple: true
+      - name: Run tests
+        run: cargo test
 
-      - name: Verify expected artifacts and generate checksums
+      - name: Build native artifact
         run: |
           set -euo pipefail
-          cd artifacts
-          expected=(
-            flakecache-linux-x86_64
-          )
-          for artifact in "${expected[@]}"; do
-            test -s "$artifact"
-          done
-          sha256sum "${expected[@]}" > checksums.sha256
+          nix build .#x86_64-linux --print-build-logs --accept-flake-config
+          cp result/bin/flakecache "$ARTIFACT"
+          chmod +x "$ARTIFACT"
+          sha256sum "$ARTIFACT" > checksums.sha256
           cat checksums.sha256
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: artifacts/*
-          generate_release_notes: true
-
-      - uses: actions/checkout@v4
-        with:
-          repository: flakecache/releases
-          token: ${{ secrets.FLAKECACHE_TOKEN }}
-          path: releases
-
-      - name: Copy binaries to internal releases repo
+      - name: Clone internal releases repo
+        env:
+          FLAKECACHE_TOKEN: ${{ secrets.FLAKECACHE_TOKEN }}
         run: |
           set -euo pipefail
-          mkdir -p releases/cli/dist
-          cp artifacts/flakecache-* releases/cli/dist/
-          cp artifacts/checksums.sha256 releases/cli/dist/
-          ls -la releases/cli/dist/
+          if [ -z "${FLAKECACHE_TOKEN:-}" ]; then
+            echo "FLAKECACHE_TOKEN is required to update flakecache/releases"
+            exit 1
+          fi
+          git clone "https://x-access-token:${FLAKECACHE_TOKEN}@git.infra.centralcloud.com/flakecache/releases.git" releases
 
       - name: Commit and push to internal releases repo
         run: |
           set -euo pipefail
+          mkdir -p releases/cli/dist
+          cp "$ARTIFACT" checksums.sha256 releases/cli/dist/
           cd releases
           git config user.name "FlakeCache Bot"
           git config user.email "bot@flakecache.com"
@@ -122,8 +69,8 @@ jobs:
           AWS_DEFAULT_REGION: eu1
         run: |
           set -euo pipefail
-          nix run nixpkgs#awscli2 -- s3 sync artifacts/ "s3://${GARAGE_BUCKET}/cli/" \
+          nix run nixpkgs#awscli2 -- s3 sync . "s3://${GARAGE_BUCKET}/cli/" \
             --endpoint-url "${GARAGE_ENDPOINT_URL}" \
             --exclude "*" \
-            --include "flakecache-*" \
+            --include "$ARTIFACT" \
             --include "checksums.sha256"
