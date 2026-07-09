@@ -12,12 +12,19 @@ permissions:
 env:
   GARAGE_ENDPOINT_URL: https://s3-eu1.centralcloud.com
   GARAGE_BUCKET: centralcloud-flakecache
-  ARTIFACT: flakecache-linux-x86_64
 
 jobs:
   release:
-    name: Build and publish Linux x86_64
+    name: Build and publish ${{ matrix.artifact }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - system: x86_64-linux
+            artifact: flakecache-linux-x86_64
+          - system: aarch64-linux
+            artifact: flakecache-linux-aarch64
 
     steps:
       - uses: actions/checkout@v4
@@ -26,16 +33,17 @@ jobs:
         uses: ./.forgejo/actions/setup-nix
 
       - name: Run tests
+        if: matrix.system == 'x86_64-linux'
         run: cargo test
 
       - name: Build native artifact
         run: |
           set -euo pipefail
-          nix build .#x86_64-linux --print-build-logs --accept-flake-config
-          cp result/bin/flakecache "$ARTIFACT"
-          chmod +x "$ARTIFACT"
-          sha256sum "$ARTIFACT" > checksums.sha256
-          cat checksums.sha256
+          nix build ".#${{ matrix.system }}" --print-build-logs --accept-flake-config
+          cp "result/bin/flakecache" "${{ matrix.artifact }}"
+          chmod +x "${{ matrix.artifact }}"
+          sha256sum "${{ matrix.artifact }}" >> "checksums-${{ matrix.system }}.sha256"
+          cat "checksums-${{ matrix.system }}.sha256"
 
       - name: Clone internal releases repo
         env:
@@ -52,15 +60,13 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p releases/cli/dist
-          cp "$ARTIFACT" checksums.sha256 releases/cli/dist/
+          cp "${{ matrix.artifact }}" "checksums-${{ matrix.system }}.sha256" releases/cli/dist/
           cd releases
           git config user.name "FlakeCache Bot"
           git config user.email "bot@flakecache.com"
-          git add cli/dist/
-          git commit -m "Update CLI binaries from FlakeCache/cli ${{ github.ref_name }}" || echo "No changes"
+          git add "cli/dist/${{ matrix.artifact }}" "cli/dist/checksums-${{ matrix.system }}.sha256"
+          git commit -m "Update ${{ matrix.artifact }} from FlakeCache/cli ${{ github.ref_name }}" || echo "No changes"
           git push origin main
-          git tag -f "cli-${{ github.ref_name }}"
-          git push -f origin "cli-${{ github.ref_name }}"
 
       - name: Upload CLI artifacts to Garage
         env:
@@ -69,8 +75,25 @@ jobs:
           AWS_DEFAULT_REGION: eu1
         run: |
           set -euo pipefail
-          nix run nixpkgs#awscli2 -- s3 sync . "s3://${GARAGE_BUCKET}/cli/" \
-            --endpoint-url "${GARAGE_ENDPOINT_URL}" \
-            --exclude "*" \
-            --include "$ARTIFACT" \
-            --include "checksums.sha256"
+          nix run nixpkgs#awscli2 -- s3 cp "${{ matrix.artifact }}" \
+            "s3://${GARAGE_BUCKET}/cli/${{ matrix.artifact }}" \
+            --endpoint-url "${GARAGE_ENDPOINT_URL}"
+          nix run nixpkgs#awscli2 -- s3 cp "checksums-${{ matrix.system }}.sha256" \
+            "s3://${GARAGE_BUCKET}/cli/checksums-${{ matrix.system }}.sha256" \
+            --endpoint-url "${GARAGE_ENDPOINT_URL}"
+
+  tag-release:
+    name: Tag releases repo
+    needs: release
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Clone internal releases repo
+        env:
+          FLAKECACHE_TOKEN: ${{ secrets.FLAKECACHE_TOKEN }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          git clone "https://x-access-token:${FLAKECACHE_TOKEN}@git.infra.centralcloud.com/flakecache/releases.git" releases
+          cd releases
+          git tag -f "cli-${REF_NAME}" && git push -f origin "cli-${REF_NAME}"
